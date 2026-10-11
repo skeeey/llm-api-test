@@ -44,7 +44,12 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist
+          # Only the packaged archive: uploading the unpacked directory as well
+          # makes the publish job's `dist/*` glob hand a directory to
+          # `gh release create`, which aborts the whole publish.
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
           if-no-files-found: error
 
   # A separate job so the release is only created once every platform built:

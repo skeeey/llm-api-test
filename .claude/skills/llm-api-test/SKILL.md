@@ -68,8 +68,18 @@ token/wall-clock figures in "Cost of a default run".
 
 ## Running the CLI
 
-Build once, run many times: `make build` (or `go build -o llm-api-test
-./cmd/llm-api-test`).
+Get the binary once, then run it many times. From a checkout with Go:
+`make build` (or `go build -o llm-api-test ./cmd/llm-api-test`). Without a
+checkout, or without a Go toolchain, install a released binary instead — it
+lands in `~/.local/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/suanova/llm-api-test/main/install.sh | bash
+```
+
+`| bash -s -- v1.2.3` pins a version; on Windows, unpack the release `.zip`
+instead (no installer script there yet). The commands below write
+`./llm-api-test`; use whichever binary you installed.
 
 ### Cost of a default run
 

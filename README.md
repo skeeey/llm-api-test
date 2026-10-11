@@ -52,6 +52,19 @@ What each test is for:
 ## Install / build
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/suanova/llm-api-test/main/install.sh | bash
+```
+
+Installs the latest release into `~/.local/bin` (no sudo). Pin a version with
+`... | bash -s -- v1.2.3`, or set `INSTALL_DIR=/usr/local/bin` to install
+system-wide. The script covers linux and macOS; on Windows, download the `.zip`
+from the release page instead. If GitHub is slow from where you are, curl's proxy
+variables apply to the whole pipeline:
+`HTTPS_PROXY=socks5h://127.0.0.1:1080 curl -fsSL ... | bash`.
+
+Or build from source:
+
+```bash
 go build -o llm-api-test ./cmd/llm-api-test # or: make build
 ./llm-api-test version                     # print the build version and commit
 ```
