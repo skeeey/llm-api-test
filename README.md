@@ -53,7 +53,11 @@ What each test is for:
 
 ```bash
 go build -o llm-api-test ./cmd/llm-api-test # or: make build
+./llm-api-test version                     # print the build version and commit
 ```
+
+Prebuilt binaries for linux, macOS, and Windows (amd64/arm64) are attached to
+each release.
 
 ## Configure
 

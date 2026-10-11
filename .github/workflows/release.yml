@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# Least privilege: only the publish job needs write, to create the release.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          # Keep the toolchain in sync with go.mod instead of pinning here.
+          go-version-file: go.mod
+      # The CLI is pure Go, so one Linux runner cross-compiles all six
+      # targets (CGO_ENABLED=0) instead of needing three OS runners.
+      - name: Build and package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          set -eu
+          name="llm-api-test_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
+          bin="llm-api-test"
+          if [ "$GOOS" = "windows" ]; then bin="llm-api-test.exe"; fi
+          mkdir -p "dist/$name"
+          # Same flags as a local build, with the tag and commit injected.
+          make build VERSION="$GITHUB_REF_NAME" COMMIT="${GITHUB_SHA:0:7}" BINARY="dist/$name/$bin"
+          if [ "$GOOS" = "windows" ]; then
+            (cd dist && zip -qr "$name.zip" "$name")
+          else
+            tar -czf "dist/$name.tar.gz" -C dist "$name"
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist
+          if-no-files-found: error
+
+  # A separate job so the release is only created once every platform built:
+  # a failed target cannot leave a half-populated release behind.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # No checkout in this job; tell gh which repository to act on.
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes

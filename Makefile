@@ -7,6 +7,11 @@ PKG      := ./cmd/llm-api-test
 GOFLAGS  := -trimpath
 GOBIN    := $(shell go env GOBIN)
 PREFIX   ?= /usr/local
+# Release builds override these with the tag and commit; a local build reports
+# git describe's output so `llm-api-test version` tells you what you built.
+VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
+LDFLAGS  := -s -w -X llm-api-test/internal/cmd.version=$(VERSION) -X llm-api-test/internal/cmd.commit=$(COMMIT)
 
 ## help: print available targets
 .PHONY: help
@@ -17,7 +22,7 @@ help: ## Show this help
 ## build: compile the binary into ./$(BINARY)
 .PHONY: build
 build: ## Build the binary
-	go build $(GOFLAGS) -o $(BINARY) $(PKG)
+	go build $(GOFLAGS) -ldflags '$(LDFLAGS)' -o $(BINARY) $(PKG)
 
 ## fmt: run go fmt on all packages
 .PHONY: fmt

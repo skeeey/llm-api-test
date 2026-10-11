@@ -1,5 +1,6 @@
 // Package cmd wires the CLI: the root command with common flags and the
-// compatibility, latency, throughput, cache, soak, and list subcommands.
+// compatibility, latency, throughput, cache, soak, list, and version
+// subcommands.
 package cmd
 
 import (
@@ -27,6 +28,7 @@ func NewRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "llm-api-test",
 		Short:         "Test LLM API compatibility and benchmark latency/throughput",
+		Version:       version,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -39,7 +41,7 @@ func NewRoot() *cobra.Command {
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "print raw response body on each case")
 	root.PersistentFlags().StringVarP(&outPath, "out", "o", "", "write the JSON report to this file; text report still goes to stdout")
 
-	root.AddCommand(newCompatibilityCmd(), newLatencyCmd(), newThroughputCmd(), newCacheCmd(), newSoakCmd(), newListCmd())
+	root.AddCommand(newCompatibilityCmd(), newLatencyCmd(), newThroughputCmd(), newCacheCmd(), newSoakCmd(), newListCmd(), newVersionCmd())
 	return root
 }
 
