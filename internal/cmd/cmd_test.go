@@ -339,6 +339,27 @@ func TestList(t *testing.T) {
 	}
 }
 
+// The version subcommand and the cobra --version flag both report the
+// build-time version: ldflags-injected values in release binaries, "dev" for a
+// plain go build.
+func TestVersion(t *testing.T) {
+	code, out := runRoot(t, "version")
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, version) || !strings.Contains(out, commit) {
+		t.Errorf("output missing version %q / commit %q\noutput:\n%s", version, commit, out)
+	}
+
+	code, out = runRoot(t, "--version")
+	if code != 0 {
+		t.Fatalf("--version exit code = %d, want 0\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, version) {
+		t.Errorf("--version output missing %q\noutput:\n%s", version, out)
+	}
+}
+
 func TestLatencyRun(t *testing.T) {
 	server := httptest.NewServer(apiMockHandler(t))
 	defer server.Close()
