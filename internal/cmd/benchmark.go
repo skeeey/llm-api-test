@@ -21,6 +21,7 @@ type benchOpts struct {
 	Iterations      int
 	Concurrency     int
 	InputTokens     int
+	PromptSalt      bool
 	MaxOutputTokens int
 	ReasoningEffort string
 	RPS             float64 // rate mode: offered requests/second; 0 = wave mode
@@ -66,6 +67,7 @@ func addBenchmarkFlags(cmd *cobra.Command, o *benchOpts) {
 	cmd.Flags().IntVar(&o.Concurrency, "concurrency", o.Concurrency, "concurrent requests per iteration")
 	cmd.Flags().IntVar(&o.Iterations, "iterations", o.Iterations, "iterations per benchmark case")
 	cmd.Flags().IntVar(&o.InputTokens, "input-tokens", o.InputTokens, "replace the prompt with a generated filler prompt of about N tokens (0 = built-in prompt)")
+	cmd.Flags().BoolVar(&o.PromptSalt, "prompt-salt", false, "prepend a random nonce to each --input-tokens filler prompt so no two requests share a prefix (uncached traffic)")
 	cmd.Flags().IntVar(&o.MaxOutputTokens, "max-output-tokens", o.MaxOutputTokens, "generation cap per request, in tokens")
 	cmd.Flags().StringVar(&o.ReasoningEffort, "reasoning-effort", o.ReasoningEffort, "reasoning effort sent to reasoning-capable formats (chat/responses), e.g. none disables thinking")
 	cmd.Flags().Float64Var(&o.RPS, "rps", o.RPS, "rate mode: offer this many requests per second (needs --duration)")
@@ -89,6 +91,10 @@ func runBenchmark(cmd *cobra.Command, o benchOpts) int {
 		fmt.Fprintln(errOut, "--max-in-flight must be > 0 in rate mode")
 		return 2
 	}
+	if o.PromptSalt && o.InputTokens <= 0 {
+		fmt.Fprintln(errOut, "--prompt-salt requires --input-tokens")
+		return 2
+	}
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -103,9 +109,16 @@ func runBenchmark(cmd *cobra.Command, o benchOpts) int {
 	if o.Mode == "throughput" {
 		prompt, promptLabel = cases.LongPrompt, "long"
 	}
+	promptOf := func() string { return prompt }
 	if o.InputTokens > 0 {
-		prompt = cases.FillerPrompt(o.InputTokens)
 		promptLabel = fmt.Sprintf("filler:%d", o.InputTokens)
+		if o.PromptSalt {
+			// A fresh nonce per request defeats the provider's prefix cache.
+			promptLabel = fmt.Sprintf("filler+salt:%d", o.InputTokens)
+			promptOf = func() string { return cases.FillerPromptSalt(o.InputTokens) }
+		} else {
+			prompt = cases.FillerPrompt(o.InputTokens)
+		}
 	}
 
 	p := registry.Params{
@@ -140,9 +153,9 @@ func runBenchmark(cmd *cobra.Command, o benchOpts) int {
 
 			var rep runner.BenchmarkReport
 			if o.RPS > 0 {
-				rep = runner.RunRate(ctx, bc, m, prompt, o.RPS, o.Duration, o.MaxInFlight, errOut)
+				rep = runner.RunRate(ctx, bc, m, promptOf, o.RPS, o.Duration, o.MaxInFlight, errOut)
 			} else {
-				rep = runner.RunBenchmark(ctx, bc, m, prompt, o.Iterations, o.Concurrency, errOut)
+				rep = runner.RunBenchmark(ctx, bc, m, promptOf, o.Iterations, o.Concurrency, errOut)
 			}
 			rep.Stream = p.Stream
 			rep.Mode = o.Mode

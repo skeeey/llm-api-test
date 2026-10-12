@@ -215,13 +215,19 @@ The `latency` and `throughput` commands run `iterations` waves of
 ./llm-api-test throughput --input-tokens 8000 --max-output-tokens 80
 ```
 
-Three flags shape the load:
+Four flags shape the load:
 
 - `--input-tokens N` replaces the built-in prompt with a deterministic filler
   prompt of about N tokens (English ≈ 1.33 tokens per word). The provider's
   `usage` reports the real input size; the report labels the run
   `filler:<N>`. This backs long-context tier runs that mirror a vendor
   benchmark's fixed input sizes.
+- `--prompt-salt` (with `--input-tokens`) prepends a fresh random nonce to
+  every request's filler prompt, so no two requests share a prefix and the
+  provider's prefix cache cannot serve any of the input; the run is labeled
+  `filler+salt:<N>`. Use it for uncached-traffic measurements: throttle and
+  capacity probes, or cache-claim verification, where a warm prefix would
+  flatter the numbers.
 - `--max-output-tokens M` caps generation per request (default 4096). Combined
   with `--input-tokens` it pins a fixed input:output ratio (e.g. 100:1).
 - `--reasoning-effort E` passes a reasoning-effort value to reasoning-capable

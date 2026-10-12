@@ -52,18 +52,19 @@ type BenchmarkReport struct {
 
 // RunBenchmark runs the benchmark case `iterations` times, each time with
 // `concurrency` parallel requests (iterations × concurrency requests total),
-// and aggregates the per-request metrics. When progress is non-nil, a live
-// status line (see progressLine) is written to it and cleared when done.
-func RunBenchmark(ctx context.Context, bc registry.BenchmarkCase, model, prompt string, iterations, concurrency int, progress io.Writer) BenchmarkReport {
+// and aggregates the per-request metrics. promptOf is asked once per request,
+// so a salted run hands every request its own prompt. When progress is
+// non-nil, a live status line (see progressLine) is written to it and cleared
+// when done.
+func RunBenchmark(ctx context.Context, bc registry.BenchmarkCase, model string, promptOf func() string, iterations, concurrency int, progress io.Writer) BenchmarkReport {
 	start := time.Now()
-	metrics := runWaves(ctx, bc, model, prompt, iterations, concurrency, progress)
+	metrics := runWaves(ctx, bc, model, promptOf, iterations, concurrency, progress)
 	if progress != nil {
 		fmt.Fprint(progress, "\r\033[K") // clear the live status line
 	}
 
 	r := aggregate(metrics)
 	r.CaseID = bc.ID()
-	r.Prompt = prompt
 	r.Iterations = iterations
 	r.Concurrency = concurrency
 
@@ -89,7 +90,7 @@ func progressLine(elapsed time.Duration, done, total int) string {
 }
 
 // runWaves runs `iterations` waves of `concurrency` parallel requests.
-func runWaves(ctx context.Context, bc registry.BenchmarkCase, model, prompt string, iterations, concurrency int, progress io.Writer) []registry.Metrics {
+func runWaves(ctx context.Context, bc registry.BenchmarkCase, model string, promptOf func() string, iterations, concurrency int, progress io.Writer) []registry.Metrics {
 	var mu sync.Mutex
 	metrics := make([]registry.Metrics, 0, iterations*concurrency)
 	total := iterations * concurrency
@@ -119,7 +120,7 @@ func runWaves(ctx context.Context, bc registry.BenchmarkCase, model, prompt stri
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				m := bc.Run(ctx, model, prompt)
+				m := bc.Run(ctx, model, promptOf())
 				mu.Lock()
 				metrics = append(metrics, *m)
 				mu.Unlock()

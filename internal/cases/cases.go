@@ -6,6 +6,7 @@ package cases
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 
 	"llm-api-test/internal/registry"
@@ -77,6 +78,16 @@ func FillerPrompt(n int) string {
 	}
 	b.WriteString("\nContinue this document with a detailed technical section about each item above.")
 	return b.String()
+}
+
+// FillerPromptSalt backs --prompt-salt: FillerPrompt with a random nonce line
+// prefixed, so no two calls share a prefix and the provider's prefix cache
+// cannot serve any of the input (uncached traffic).
+func FillerPromptSalt(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("[nonce %016x]\n%s", rand.Uint64(), FillerPrompt(n))
 }
 
 // fillerSentences cycle in FillerPrompt. Distinct, ordinary sentences keep

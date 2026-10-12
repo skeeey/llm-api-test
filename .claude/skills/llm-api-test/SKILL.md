@@ -126,6 +126,11 @@ the JSON report (text still goes to stdout).
   `--input-tokens N` replaces it with a deterministic filler prompt of about
   N tokens (the provider's `usage` reports the real size; the report labels
   the run `filler:<N>`). There is no free-form `--prompt` flag.
+- `--prompt-salt` (with `--input-tokens`) prepends a fresh random nonce to
+  every request's filler prompt, so nothing hits the provider's prefix cache
+  — the mode for uncached-traffic runs (throttle/capacity probes, cache-claim
+  verification). The run is labeled `filler+salt:<N>`; a salted run shows no
+  `Cache:` line, which is the acceptance check.
 - `--max-output-tokens M` overrides the 4096 generation cap. Pair it with
   `--input-tokens` to reproduce a vendor benchmark's fixed input:output
   ratio (e.g. 100:1) at a given context tier.

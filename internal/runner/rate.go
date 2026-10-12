@@ -47,9 +47,10 @@ func httpClass(err error) string {
 // shed (offered load is preserved in the report rather than silently
 // throttled downward). After the issue phase, outstanding requests drain for
 // as long as ctx allows; requests still running at the ctx deadline are
-// counted as Incomplete. When progress is non-nil, a live status line is
-// written to it and cleared when done.
-func RunRate(ctx context.Context, bc registry.BenchmarkCase, model, prompt string, rps float64, duration time.Duration, maxInFlight int, progress io.Writer) BenchmarkReport {
+// counted as Incomplete. promptOf is asked once per request, so a salted run
+// hands every request its own prompt. When progress is non-nil, a live status
+// line is written to it and cleared when done.
+func RunRate(ctx context.Context, bc registry.BenchmarkCase, model string, promptOf func() string, rps float64, duration time.Duration, maxInFlight int, progress io.Writer) BenchmarkReport {
 	start := time.Now()
 	interval := time.Duration(float64(time.Second) / rps)
 	interval = max(interval, time.Millisecond)
@@ -107,7 +108,7 @@ issue:
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				m := bc.Run(ctx, model, prompt)
+				m := bc.Run(ctx, model, promptOf())
 				mu.Lock()
 				metrics = append(metrics, *m)
 				if m.Err != nil {
@@ -142,7 +143,6 @@ issue:
 
 	r := aggregate(metrics)
 	r.CaseID = bc.ID()
-	r.Prompt = prompt
 	r.OfferedRPS = rps
 	r.Duration = duration
 	r.Sent = sent

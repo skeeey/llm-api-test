@@ -175,7 +175,7 @@ func TestRunCompatAllPass(t *testing.T) {
 
 func TestRunBenchmark(t *testing.T) {
 	bc := fakeBenchmarkCase{}
-	r := RunBenchmark(context.Background(), bc, "m", "pong", 2, 3, nil)
+	r := RunBenchmark(context.Background(), bc, "m", staticPrompt("pong"), 2, 3, nil)
 	if r.TotalRequests != 6 {
 		t.Errorf("TotalRequests = %d, want 6", r.TotalRequests)
 	}

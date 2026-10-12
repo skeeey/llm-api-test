@@ -4,6 +4,7 @@
 # Local config (contains API key), excepting the example
 config*.yaml
 !config.example.yaml
+*.config
 
 # Upsteam Test Reports
 upstream-repoorts
