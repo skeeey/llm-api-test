@@ -51,7 +51,7 @@ func (f *rateCase) Run(ctx context.Context, model, prompt string) *registry.Metr
 // sent count matches the offered schedule and nothing is shed.
 func TestRunRatePacing(t *testing.T) {
 	bc := &rateCase{sleep: 5 * time.Millisecond}
-	r := RunRate(context.Background(), bc, "m", "p", 20, 500*time.Millisecond, 100, nil)
+	r := RunRate(context.Background(), bc, "m", staticPrompt("p"), 20, 500*time.Millisecond, 100, nil)
 	// 20 rps x 0.5s = 10 offered; pacing jitter makes this a range check.
 	if r.Sent < 7 || r.Sent > 13 {
 		t.Errorf("Sent = %d, want ~10", r.Sent)
@@ -78,7 +78,7 @@ func TestRunRatePacing(t *testing.T) {
 // requests: offered load is kept, concurrency is capped.
 func TestRunRateShedsAtInFlightCap(t *testing.T) {
 	bc := &rateCase{sleep: 300 * time.Millisecond}
-	r := RunRate(context.Background(), bc, "m", "p", 50, 200*time.Millisecond, 1, nil)
+	r := RunRate(context.Background(), bc, "m", staticPrompt("p"), 50, 200*time.Millisecond, 1, nil)
 	if r.Shed == 0 {
 		t.Error("Shed = 0, want > 0 with cap 1 and 300ms requests")
 	}
@@ -90,7 +90,7 @@ func TestRunRateShedsAtInFlightCap(t *testing.T) {
 // HTTP failures are tallied by class; they do not stop the run.
 func TestRunRateCountsFailures(t *testing.T) {
 	bc := &rateCase{sleep: 5 * time.Millisecond, err: fmt.Errorf(`HTTP 429: {"error":"slow down"}`)}
-	r := RunRate(context.Background(), bc, "m", "p", 20, 300*time.Millisecond, 100, nil)
+	r := RunRate(context.Background(), bc, "m", staticPrompt("p"), 20, 300*time.Millisecond, 100, nil)
 	if r.HTTP429 == 0 {
 		t.Error("HTTP429 = 0, want > 0")
 	}
@@ -105,8 +105,23 @@ func TestRunRateCountsIncompleteOnDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
 	bc := &rateCase{sleep: 400 * time.Millisecond}
-	r := RunRate(ctx, bc, "m", "p", 20, 200*time.Millisecond, 10, nil)
+	r := RunRate(ctx, bc, "m", staticPrompt("p"), 20, 200*time.Millisecond, 10, nil)
 	if r.Incomplete == 0 {
 		t.Error("Incomplete = 0, want > 0 when requests outlive the ctx deadline")
+	}
+}
+
+// RunRate draws each tick's prompt from the same per-request source as wave
+// mode, so salted rate runs also avoid prefix reuse.
+func TestRunRatePromptSourcePerRequest(t *testing.T) {
+	bc := &promptRecordingCase{}
+	n := 0
+	promptOf := func() string { n++; return fmt.Sprintf("prompt-%d", n) }
+	r := RunRate(context.Background(), bc, "m", promptOf, 20, 300*time.Millisecond, 100, nil)
+	if r.Sent < 3 {
+		t.Fatalf("Sent = %d, want >= 3", r.Sent)
+	}
+	if got := bc.distinct(); got != r.Sent {
+		t.Errorf("distinct prompts = %d, want %d (one per sent request)", got, r.Sent)
 	}
 }
